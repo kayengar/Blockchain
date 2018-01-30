@@ -1,11 +1,9 @@
 var express = require('express')
 var SHA256 = require("crypto-js/sha256");
+var json = require("json-object")
 var app = express()
 var blockChain = []
 var transactions = []
-
-
-app.get('/addtransaction/:sender/:receiver/:amount/',function (request, response){
 var mongoose = require("mongoose")
 mongoose.Promise = global.Promise;
 var db = mongoose.connect('mongodb://localhost/Blockchain');
@@ -17,11 +15,6 @@ mongoose.connection.on('connected', function () {
 mongoose.connection.on('error',function (err) {  
   console.log('Mongoose default connection error: ' + err);
 }); 
-
-// When the connection is disconnected
-mongoose.connection.on('disconnected', function () {  
-  console.log('Mongoose default connection disconnected'); 
-});
 
 const TransactionSchema = new mongoose.Schema({
 	sender : String,
@@ -39,28 +32,18 @@ const BlockchainSchema  = new mongoose.Schema({
 mongoose.model('TransactionTable',TransactionSchema)
 var TransactionTable = mongoose.model('TransactionTable')
 
-// TransactionSchema.save()
-
-
-
 mongoose.model('BlockchainTable',BlockchainSchema)
 var BlockchainTable = mongoose.model('BlockchainTable')
 
+app.get('/addtransaction/:sender/:receiver/:amount/',function (request, response){
 
-
-var tt = new TransactionTable()
-
-// BlockchainSchema.save()
-console.log('Here')
-lastBlock = BlockchainTable.findOne().sort({timestamp:-1});
-	temp = []
-	temp.push(request.params.sender)
-	temp.push(request.params.receiver)
-	temp.push(request.params.amount)
-	transactions.push(temp)
-	tt.create(temp)
-	tt.save()
-	// response.send(SHA256(transactions[transactions.length-1]).toString())
+	temp = {
+		sender : request.params.sender,
+		receiver : request.params.receiver, 
+		amount : request.params.amount
+	}
+    var tt = new TransactionTable(temp);
+    tt.save()
 	response.send(temp)
 })
 
@@ -70,22 +53,21 @@ app.get('/getLastBlock/',function(){
 
 
 app.get('/addBlock/',function(request,response){
-	index = blockChain.length
-	timeStamp = new Date().getTime() / 1000
-	data = transactions[transactions.length-1]
-	if(blockChain.length>0)
-		previousHash = blockChain[blockChain.length-1][4]
-	else
-		previousHash = SHA256("random")
-	hash = SHA256(index+timeStamp+data+previousHash).toString()
-	temp = []
-	temp.push(index)
-	temp.push(timeStamp)
-	temp.push(data)
-	temp.push(hash)
-	blockChain.push(temp)
-	BlockchainTable.create(temp)
-	response.send(blockChain[blockChain.length-1])
+	index = BlockchainTable.find().toJSON()
+	console.log(index)
+	timeStamp = new Date()
+	previousHash = BlockchainTable.findOne().sort({timestamp:-1}).exec()
+    data = TransactionTable.findOne().sort({timestamp:-1})
+    console.log(data)
+	temp = {
+		index : index.toString(),
+		timeStamp : timeStamp.toString(),
+		data : data.toString(),
+	    hash : SHA256(index+timeStamp+data+previousHash).toString()
+	}
+	var bt = new BlockchainTable(temp)
+	bt.save()
+	response.send(temp)
 })
 
 
